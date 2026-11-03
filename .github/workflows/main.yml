@@ -68,22 +68,18 @@ jobs:
           sed -i 's/^android.minapi = .*/android.minapi = 23/' buildozer.spec
           sed -i 's/^android.archs = .*/android.archs = arm64-v8a,armeabi-v7a/' buildozer.spec
 
-          sed -i 's/^# *android.accept_sdk_license =.*/android.accept_sdk_license = True/' buildozer.spec
+          if grep -q '^android.accept_sdk_license' buildozer.spec; then
+            sed -i 's/^android.accept_sdk_license.*/android.accept_sdk_license = True/' buildozer.spec
+          else
+            echo 'android.accept_sdk_license = True' >> buildozer.spec
+          fi
 
           echo "===== buildozer.spec prepared ====="
           cat buildozer.spec
 
-      - name: Accept Android SDK licenses
-        run: |
-          mkdir -p "$HOME/.buildozer"
-          mkdir -p "$ANDROID_HOME/licenses"
-          mkdir -p "$ANDROID_SDK_ROOT/licenses"
-
-          yes | buildozer android debug || true
-
       - name: Build AL WARD APK
         run: |
-          yes | buildozer android debug
+          buildozer -v android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
