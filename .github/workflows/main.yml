@@ -7,9 +7,15 @@ on:
 permissions:
   contents: read
 
+env:
+  APP_ANDROID_ACCEPT_SDK_LICENSE: "1"
+  PYTHONFORANDROID_PREREQUISITES_INSTALL_INTERACTIVE: "0"
+  BUILDOZER_WARN_ON_ROOT: "0"
+
 jobs:
   build:
     runs-on: ubuntu-22.04
+    timeout-minutes: 120
 
     steps:
       - name: Checkout repository
@@ -20,50 +26,64 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             git zip unzip \
-            openjdk-17-jdk \
-            python3-pip \
-            autoconf \
-            automake \
-            libtool \
-            pkg-config \
-            zlib1g-dev \
-            libffi-dev \
-            libssl-dev \
-            libltdl-dev \
-            libsqlite3-dev \
-            libncurses5-dev \
-            libncursesw5-dev \
-            cmake \
-            libjpeg-dev \
-            libfreetype6-dev
+            autoconf automake libtool \
+            pkg-config zlib1g-dev \
+            libncurses5-dev libncursesw5-dev \
+            cmake libffi-dev libssl-dev \
+            libltdl-dev libsqlite3-dev \
+            libjpeg-dev libfreetype6-dev \
+            gettext autopoint
 
       - name: Install Buildozer
         run: |
-          pip install --upgrade pip setuptools wheel
-          pip install buildozer cython==0.29.33
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install buildozer cython==0.29.33
 
-      - name: Create buildozer.spec
+      - name: Prepare buildozer.spec
         run: |
           buildozer init
+
           sed -i 's/^title = .*/title = AL WARD/' buildozer.spec
           sed -i 's/^package.name = .*/package.name = alward/' buildozer.spec
           sed -i 's/^package.domain = .*/package.domain = com.alward.chat/' buildozer.spec
+
           sed -i 's/^source.include_exts = .*/source.include_exts = py,png,jpg,jpeg,kv,atlas/' buildozer.spec
+
           sed -i 's/^requirements = .*/requirements = python3,kivy,requests,pillow/' buildozer.spec
+
           sed -i 's/^orientation = .*/orientation = portrait/' buildozer.spec
+
           sed -i 's/^android.api = .*/android.api = 35/' buildozer.spec
           sed -i 's/^android.minapi = .*/android.minapi = 23/' buildozer.spec
           sed -i 's/^android.archs = .*/android.archs = arm64-v8a,armeabi-v7a/' buildozer.spec
-          sed -i 's/^# android.accept_sdk_license = .*/android.accept_sdk_license = True/' buildozer.spec
 
-      - name: Build APK
+          sed -i 's/^# *android.accept_sdk_license =.*/android.accept_sdk_license = True/' buildozer.spec
+
+          echo "===== buildozer.spec prepared ====="
+          cat buildozer.spec
+
+      - name: Accept Android SDK licenses
         run: |
-          buildozer android debug
+          mkdir -p "$HOME/.buildozer"
+          mkdir -p "$ANDROID_HOME/licenses"
+          mkdir -p "$ANDROID_SDK_ROOT/licenses"
+
+          yes | buildozer android debug || true
+
+      - name: Build AL WARD APK
+        run: |
+          yes | buildozer android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
